@@ -1,5 +1,5 @@
 /**
- * Static site build: validate reviews, sync public assets, inject Review schema into index.html.
+ * Static site build: validate reviews, ensure public/ is complete, inject Review schema.
  */
 import {
   readFileSync,
@@ -13,8 +13,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
+const publicDir = join(root, "public");
+const dataDir = join(root, "data");
 
-const reviewsPath = join(root, "data", "reviews.json");
+const reviewsPath = join(dataDir, "reviews.json");
 const reviews = JSON.parse(readFileSync(reviewsPath, "utf8"));
 
 if (!Array.isArray(reviews) || reviews.length === 0) {
@@ -32,14 +34,9 @@ for (const [i, r] of reviews.entries()) {
   }
 }
 
-// Sync public assets to root (static hosting)
-const publicDir = join(root, "public");
-for (const file of ["favicon.ico", "favicon.png", "logo.png", "og-image.png"]) {
-  const src = join(publicDir, file);
-  if (existsSync(src)) {
-    copyFileSync(src, join(root, file));
-  }
-}
+// Ensure public/data has the reviews JSON
+mkdirSync(join(publicDir, "data"), { recursive: true });
+copyFileSync(reviewsPath, join(publicDir, "data", "reviews.json"));
 
 const reviewNodes = reviews.map((r) => {
   const node = {
@@ -76,12 +73,19 @@ const graph = {
   "@graph": reviewNodes,
 };
 
-const schemaDir = join(root, "data");
-mkdirSync(schemaDir, { recursive: true });
-writeFileSync(join(schemaDir, "reviews-schema.json"), JSON.stringify(graph));
+writeFileSync(join(dataDir, "reviews-schema.json"), JSON.stringify(graph));
+writeFileSync(
+  join(publicDir, "data", "reviews-schema.json"),
+  JSON.stringify(graph)
+);
 
-// Inject static Review schema into index.html for crawlers
-const indexPath = join(root, "index.html");
+// Inject static Review schema into public/index.html for crawlers
+const indexPath = join(publicDir, "index.html");
+if (!existsSync(indexPath)) {
+  console.error("Build failed: public/index.html missing.");
+  process.exit(1);
+}
+
 let html = readFileSync(indexPath, "utf8");
 
 const schemaBlock = `    <script type="application/ld+json" id="reviews-schema">
@@ -98,12 +102,17 @@ if (html.includes('id="reviews-schema"')) {
     schemaBlock
   );
 } else {
-  html = html.replace(
-    "</head>",
-    `${schemaBlock}\n  </head>`
-  );
+  html = html.replace("</head>", `${schemaBlock}\n  </head>`);
 }
 
 writeFileSync(indexPath, html);
 
-console.log(`Build OK: ${reviews.length} reviews validated & schema injected.`);
+// Required public files
+for (const file of ["index.html", "styles.css", "app.js", "favicon.ico", "logo.png"]) {
+  if (!existsSync(join(publicDir, file))) {
+    console.error(`Build failed: public/${file} missing.`);
+    process.exit(1);
+  }
+}
+
+console.log(`Build OK: ${reviews.length} reviews validated & public/ ready.`);

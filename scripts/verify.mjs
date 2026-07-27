@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const reviews = JSON.parse(readFileSync(join(root, "data", "reviews.json"), "utf8"));
-const html = readFileSync(join(root, "index.html"), "utf8");
+const html = readFileSync(join(root, "public", "index.html"), "utf8");
 
 const checks = [
   ["review count is 89", reviews.length === 89],
