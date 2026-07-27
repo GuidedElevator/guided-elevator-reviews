@@ -1,0 +1,14 @@
+{
+  "name": "guided-elevator-reviews",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone Google reviews showcase for Guided Elevator — guidedelevatorreviews.com",
+  "scripts": {
+    "start": "npx --yes serve . -l 3000",
+    "build": "node scripts/build.mjs",
+    "verify": "node scripts/verify.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
