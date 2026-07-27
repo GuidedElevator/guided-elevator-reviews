@@ -33,6 +33,36 @@ npm run verify  # smoke checks for SEO/content requirements
 - Keep tone professional and trustworthy.
 - Rating display: **4.9** based on **89** Google reviews.
 
+## Deploy
+
+| Resource | URL |
+| --- | --- |
+| GitHub | https://github.com/GuidedElevator/guided-elevator-reviews |
+| Vercel project | `guided-elevator-reviews` |
+| Production (Vercel) | https://guided-elevator-reviews.vercel.app |
+| Custom domain | https://www.guidedelevatorreviews.com |
+
+### DNS (Namecheap / registrar-servers.com)
+
+Domains are attached to the Vercel project but need DNS pointed at Vercel:
+
+**Option A — records (recommended while keeping current nameservers)**
+
+| Type | Host | Value |
+| --- | --- | --- |
+| A | `@` | `216.198.79.1` |
+| A | `@` | `64.29.17.1` |
+| CNAME | `www` | `0ae9f1cff194b2b1.vercel-dns-017.com.` |
+
+(If Vercel’s UI shows slightly different targets, prefer the values under Project → Settings → Domains.)
+
+**Option B — Vercel nameservers**
+
+- `ns1.vercel-dns.com`
+- `ns2.vercel-dns.com`
+
+After DNS propagates, SSL is automatic via Vercel.
+
 ## Contact
 
 - Phone: (562) 420-3139
