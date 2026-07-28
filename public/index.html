@@ -2259,6 +2259,14 @@
             (562) 420-3139
           </a>
           <a
+            class="btn btn-orange"
+            href="https://www.guidedelevator.com/service"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Request Service
+          </a>
+          <a
             class="btn btn-outline"
             href="https://www.guidedelevator.com"
             target="_blank"
@@ -2306,7 +2314,13 @@
             </div>
           </div>
 
-          <div class="rating-card" aria-label="Overall Google rating">
+          <a
+            class="rating-card"
+            href="https://www.google.com/maps/place/Guided+Elevator/@33.8469193,-118.0971524,17z/data=!4m8!3m7!1s0x80dd3274e92cc751:0xe09160a0865914c8!8m2!3d33.8469193!4d-118.0945775!9m1!1b1!16s%2Fg%2F1tdq69zj?entry=ttu&g_ep=EgoyMDI2MDcxOS4wIKXMDSoASAFQAw%3D%3D"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View Guided Elevator on Google — 4.9 out of 5 from 89 reviews"
+          >
             <div class="rating-score">4.9</div>
             <div class="rating-meta">
               <div
@@ -2322,7 +2336,7 @@
                 Verified Google Business Profile reviews
               </p>
             </div>
-          </div>
+          </a>
         </div>
       </section>
 
@@ -2349,35 +2363,48 @@
 
       <section id="reviews" class="reviews-section" aria-labelledby="reviews-heading">
         <div class="container">
-          <div class="section-header">
-            <h2 id="reviews-heading">Customer Reviews</h2>
-            <p>
-              Authentic feedback from homeowners, realtors, and contractors —
-              sorted newest first.
-            </p>
+          <div class="reviews-toolbar">
+            <div class="section-header">
+              <h2 id="reviews-heading">Customer Reviews</h2>
+              <p>
+                Authentic feedback from homeowners, realtors, and contractors
+                across Los Angeles &amp; Orange County.
+              </p>
+            </div>
+            <div class="sort-control">
+              <label for="review-sort">Sort by</label>
+              <select id="review-sort" name="review-sort">
+                <option value="newest" selected>Newest</option>
+                <option value="oldest">Oldest</option>
+                <option value="highest">Highest</option>
+                <option value="lowest">Lowest</option>
+              </select>
+            </div>
           </div>
 
-          <div
-            id="reviews-grid"
-            class="reviews-grid"
-            aria-live="polite"
-            aria-busy="true"
-          >
-            <!-- Reviews rendered by app.js -->
-          </div>
-
-          <div class="load-more-wrap">
-            <p id="reviews-status" class="reviews-status" aria-live="polite">
-              Loading reviews…
-            </p>
-            <button
-              id="load-more"
-              class="btn btn-primary"
-              type="button"
-              hidden
+          <div class="reviews-mosaic">
+            <div
+              id="reviews-grid"
+              class="reviews-grid"
+              aria-live="polite"
+              aria-busy="true"
             >
-              Load more reviews
-            </button>
+              <!-- Reviews rendered by app.js -->
+            </div>
+
+            <div class="load-more-wrap">
+              <p id="reviews-status" class="reviews-status" aria-live="polite">
+                Loading reviews…
+              </p>
+              <button
+                id="load-more"
+                class="btn btn-primary"
+                type="button"
+                hidden
+              >
+                Load more reviews
+              </button>
+            </div>
           </div>
         </div>
       </section>

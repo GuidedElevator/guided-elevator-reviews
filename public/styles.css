@@ -36,6 +36,8 @@
   --radius-full: 999px;
   --container: 1120px;
   --header-h: 88px;
+  /* Updated by JS to match live sticky header height */
+  --header-sticky-offset: 88px;
   --font: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   --lh-body: 1.65;
   --transition: 180ms ease;
@@ -332,6 +334,23 @@ p {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   max-width: 420px;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow var(--transition), border-color var(--transition),
+    transform var(--transition);
+  cursor: pointer;
+}
+
+.rating-card:hover {
+  border-color: #c9d6e8;
+  box-shadow: 0 18px 44px rgba(6, 21, 40, 0.14);
+  transform: translateY(-2px);
+  color: inherit;
+}
+
+.rating-card:focus-visible {
+  outline: 3px solid var(--brand-orange);
+  outline-offset: 3px;
 }
 
 .rating-score {
@@ -441,9 +460,65 @@ p {
   background: linear-gradient(180deg, var(--white) 0%, var(--navy-50) 100%);
 }
 
+/*
+ * Sticky under the site header: once reviews toolbar reaches the header,
+ * it pins and the mosaic continues scrolling underneath.
+ */
+.reviews-toolbar {
+  position: sticky;
+  top: var(--header-sticky-offset);
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 0 1rem;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(244, 247, 251, 0.98) 100%
+  );
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  /* Enables full-bleed ::before background */
+  isolation: isolate;
+}
+
+.reviews-toolbar::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 100vw;
+  transform: translateX(-50%);
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(244, 247, 251, 0.98) 100%
+  );
+  border-bottom: 1px solid transparent;
+  pointer-events: none;
+}
+
+.reviews-toolbar.is-stuck {
+  border-bottom-color: var(--slate-200);
+  box-shadow: 0 8px 20px rgba(6, 21, 40, 0.06);
+}
+
+.reviews-toolbar.is-stuck::before {
+  border-bottom-color: var(--slate-200);
+  box-shadow: 0 8px 20px rgba(6, 21, 40, 0.06);
+}
+
 .section-header {
-  margin-bottom: 1.75rem;
+  flex: 1 1 16rem;
+  min-width: 0;
   max-width: 46rem;
+  margin: 0;
 }
 
 .section-header h2 {
@@ -457,10 +532,71 @@ p {
   color: var(--slate-600);
 }
 
-/* Masonry-style tiling: natural card heights, no equal-height rows */
+.sort-control {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.sort-control label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--slate-500);
+}
+
+.sort-control select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 11.5rem;
+  min-height: 44px;
+  padding: 0.55rem 2.4rem 0.55rem 0.9rem;
+  border: 1.5px solid var(--slate-300);
+  border-radius: var(--radius-full);
+  background-color: var(--white);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 1rem;
+  color: var(--navy-900);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.sort-control select:hover {
+  border-color: var(--navy-700);
+}
+
+.sort-control select:focus {
+  outline: none;
+  border-color: var(--navy-700);
+  box-shadow: 0 0 0 3px rgba(18, 48, 86, 0.15);
+}
+
+/*
+ * Left-to-right masonry: flex columns filled round-robin in JS so
+ * newest reviews sit across the top of all columns (not newspaper flow).
+ */
 .reviews-grid {
-  column-count: 1;
-  column-gap: 1.1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1.1rem;
+}
+
+.reviews-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
 }
 
 .review-card {
@@ -473,17 +609,9 @@ p {
   flex-direction: column;
   gap: 0.75rem;
   width: 100%;
-  margin: 0 0 1.1rem;
-  break-inside: avoid;
-  page-break-inside: avoid;
-  -webkit-column-break-inside: avoid;
   transition: box-shadow var(--transition), border-color var(--transition),
     transform var(--transition);
   animation: fade-up 360ms ease both;
-}
-
-.review-card:last-child {
-  margin-bottom: 0;
 }
 
 .review-card:hover {
@@ -668,7 +796,6 @@ p {
 .skeleton-card {
   min-height: 180px;
   width: 100%;
-  margin: 0 0 1.1rem;
   border-radius: var(--radius-md);
   background: linear-gradient(
     90deg,
@@ -679,13 +806,11 @@ p {
   background-size: 200% 100%;
   animation: shimmer 1.2s infinite;
   border: 1px solid var(--slate-200);
-  break-inside: avoid;
-  page-break-inside: avoid;
-  -webkit-column-break-inside: avoid;
 }
 
 .error-state {
-  column-span: all;
+  flex: 1 1 100%;
+  width: 100%;
   text-align: center;
   padding: 2rem;
   color: var(--slate-600);
@@ -723,10 +848,6 @@ p {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .reviews-grid {
-    column-count: 2;
-  }
-
   .footer-grid {
     grid-template-columns: 1.4fr 1fr 1fr;
   }
@@ -745,10 +866,6 @@ p {
   .rating-card {
     justify-self: end;
     width: 100%;
-  }
-
-  .reviews-grid {
-    column-count: 3;
   }
 
   .cta-inner {
