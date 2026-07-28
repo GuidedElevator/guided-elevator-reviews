@@ -265,6 +265,8 @@ p {
   padding: 0.55rem 0.85rem;
   border-radius: var(--radius-full);
   background: var(--navy-50);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .phone-link:hover {
@@ -884,12 +886,13 @@ p {
   }
 
   .header-actions .btn {
-    flex: 1;
+    flex: 1 1 auto;
   }
 
   .phone-link {
-    flex: 1;
+    flex: 1 1 auto;
     justify-content: center;
+    min-width: max-content;
   }
 
   .rating-card {
