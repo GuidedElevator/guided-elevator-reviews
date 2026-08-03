@@ -2,14 +2,17 @@
  * Guided Elevator Reviews — client logic
  * Loads reviews from /data/reviews.json (exact export; never invented).
  *
- * Masonry: left-to-right packing into N columns so top-of-list reviews sit
- * across the top (not newspaper-style top-to-bottom column fill).
+ * Masonry: pack each card into the shortest column (height-balanced).
+ * Ties break left-to-right so early/newest items still fill across the top.
+ * Avoids one tall column with empty space beside it while scrolling.
  */
 
 (() => {
   "use strict";
 
-  const PAGE_SIZE = 9;
+  // First paint + each "Load more" click. Multiple of 3 keeps masonry balanced.
+  // No infinite scroll — user opts in via the button so they don't auto-load all 94.
+  const PAGE_SIZE = 18;
   const REVIEWS_URL = "/data/reviews.json";
 
   const grid = document.getElementById("reviews-grid");
@@ -26,10 +29,12 @@
   /** @type {Array<{author:string,rating:number,date:string,text:?string,reply?:string}>} */
   let sortedReviews = [];
   let visibleCount = 0;
+  /** Prevents double load-more from click + infinite scroll races */
+  let isLoadingMore = false;
   /** @type {HTMLElement[]} */
   let columns = [];
   let columnCount = 0;
-  /** @type {"newest"|"oldest"|"highest"|"lowest"} */
+  /** @type {"newest"|"oldest"|"highest"|"lowest"|"source-az"|"source-za"} */
   let currentSort = "newest";
 
   if (yearEl) {
@@ -113,8 +118,8 @@
   }
 
   /**
-   * @param {Array<{author:string,rating:number,date:string,text:?string,reply?:string}>} reviews
-   * @param {"newest"|"oldest"|"highest"|"lowest"} mode
+   * @param {Array<{author:string,rating:number,date:string,text:?string,reply?:string,source?:string}>} reviews
+   * @param {"newest"|"oldest"|"highest"|"lowest"|"source-az"|"source-za"} mode
    */
   function sortReviews(reviews, mode) {
     const list = reviews.slice();
@@ -123,6 +128,8 @@
       const t = Date.parse(`${r.date || ""}T12:00:00`);
       return Number.isNaN(t) ? 0 : t;
     };
+
+    const sourceKey = (r) => normalizeSource(r.source);
 
     list.sort((a, b) => {
       if (mode === "newest") {
@@ -141,6 +148,16 @@
         if (ratingDiff !== 0) return ratingDiff;
         return dateValue(b) - dateValue(a);
       }
+      if (mode === "source-az") {
+        const sourceDiff = sourceKey(a).localeCompare(sourceKey(b));
+        if (sourceDiff !== 0) return sourceDiff;
+        return dateValue(b) - dateValue(a);
+      }
+      if (mode === "source-za") {
+        const sourceDiff = sourceKey(b).localeCompare(sourceKey(a));
+        if (sourceDiff !== 0) return sourceDiff;
+        return dateValue(b) - dateValue(a);
+      }
       return 0;
     });
 
@@ -156,12 +173,13 @@
   }
 
   /**
-   * Create flex column containers for left-to-right masonry.
+   * Create flex column containers for height-balanced masonry.
    * @param {number} count
    */
   function ensureColumns(count) {
     if (columnCount === count && columns.length === count) return;
 
+    // Preserve logical order (dataset.order), then re-pack by shortest column
     const existingCards = collectCardsInDisplayOrder();
 
     grid.innerHTML = "";
@@ -177,8 +195,8 @@
       columns.push(col);
     }
 
-    existingCards.forEach((card, i) => {
-      placeCard(card, i);
+    existingCards.forEach((card) => {
+      placeCard(card);
     });
   }
 
@@ -190,43 +208,41 @@
   }
 
   /**
+   * Cards in original sort order (dataset.order), not visual column order.
    * @returns {HTMLElement[]}
    */
   function collectCardsInDisplayOrder() {
-    if (!columns.length) {
-      return Array.from(grid.querySelectorAll(".review-card"));
-    }
-
     const all = Array.from(grid.querySelectorAll(".review-card"));
     if (all.every((el) => el.dataset.order != null)) {
       return all.sort(
         (a, b) => Number(a.dataset.order) - Number(b.dataset.order)
       );
     }
-
-    const perCol = columns.map((col) =>
-      Array.from(col.querySelectorAll(".review-card"))
-    );
-    const maxLen = Math.max(0, ...perCol.map((list) => list.length));
-    /** @type {HTMLElement[]} */
-    const ordered = [];
-
-    for (let row = 0; row < maxLen; row++) {
-      for (let c = 0; c < perCol.length; c++) {
-        if (perCol[c][row]) ordered.push(perCol[c][row]);
-      }
-    }
-    return ordered;
+    return all;
   }
 
   /**
+   * Place a card into the currently shortest column so the mosaic stays
+   * height-balanced (avoids one tall column and empty space beside it).
+   * Ties break left-to-right so early/newest cards still fill across the top.
    * @param {HTMLElement} card
-   * @param {number} index
    */
-  function placeCard(card, index) {
+  function placeCard(card) {
     if (!columns.length) ensureColumns(getDesiredColumnCount());
-    const colIndex = index % columns.length;
-    columns[colIndex].appendChild(card);
+
+    let shortest = 0;
+    let minHeight = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < columns.length; i++) {
+      // Force layout so height includes cards just appended in this batch
+      const h = columns[i].offsetHeight;
+      if (h < minHeight) {
+        minHeight = h;
+        shortest = i;
+      }
+    }
+
+    columns[shortest].appendChild(card);
   }
 
   function showSkeletons(count) {
@@ -238,66 +254,91 @@
       const sk = document.createElement("div");
       sk.className = "skeleton-card";
       sk.setAttribute("aria-hidden", "true");
-      placeCard(sk, i);
+      placeCard(sk);
     }
   }
 
   function renderNextPage() {
-    ensureColumns(getDesiredColumnCount());
-    const next = sortedReviews.slice(visibleCount, visibleCount + PAGE_SIZE);
+    if (isLoadingMore) return;
 
-    next.forEach((review, i) => {
-      const index = visibleCount + i;
-      const card = createReviewCard(review, index);
-      placeCard(card, index);
-    });
+    const total = sortedReviews.length;
+    if (visibleCount >= total) {
+      updateStatus();
+      return;
+    }
 
-    visibleCount += next.length;
-    updateStatus();
+    isLoadingMore = true;
+    try {
+      ensureColumns(getDesiredColumnCount());
+      const next = sortedReviews.slice(visibleCount, visibleCount + PAGE_SIZE);
+
+      next.forEach((review, i) => {
+        const index = visibleCount + i;
+        const card = createReviewCard(review, index);
+        placeCard(card);
+      });
+
+      visibleCount = Math.min(total, visibleCount + next.length);
+    } finally {
+      isLoadingMore = false;
+      updateStatus();
+    }
   }
 
+  /**
+   * Full re-pack of currently visible cards into shortest-column masonry.
+   * Used after breakpoint changes and after sort (via clear + re-render).
+   */
   function relayoutVisible() {
     if (!sortedReviews.length || visibleCount === 0) {
       ensureColumns(getDesiredColumnCount());
       return;
     }
 
-    const count = visibleCount;
+    const count = Math.min(visibleCount, sortedReviews.length);
+    visibleCount = count;
     clearColumns();
     for (let i = 0; i < count; i++) {
       const card = createReviewCard(sortedReviews[i], i);
-      placeCard(card, i);
+      placeCard(card);
     }
     updateStatus();
   }
 
   function updateStatus() {
     const total = sortedReviews.length;
-    const remaining = total - visibleCount;
+    if (visibleCount > total) visibleCount = total;
+
+    const remaining = Math.max(0, total - visibleCount);
 
     if (total === 0) {
       statusEl.textContent = "No reviews available.";
       loadMoreBtn.hidden = true;
+      loadMoreBtn.setAttribute("hidden", "");
+      loadMoreBtn.disabled = true;
       return;
     }
 
-    statusEl.textContent = `Showing ${visibleCount} of ${total} reviews`;
-
+    // Status text and button always share the same remaining math
     if (remaining > 0) {
+      statusEl.textContent = `Showing ${visibleCount} of ${total} reviews`;
       loadMoreBtn.hidden = false;
+      loadMoreBtn.removeAttribute("hidden");
       loadMoreBtn.disabled = false;
       loadMoreBtn.textContent =
         remaining === 1
           ? "Load 1 more review"
           : `Load more reviews (${remaining} remaining)`;
     } else {
+      statusEl.textContent = `Showing all ${total} customer reviews`;
       loadMoreBtn.hidden = true;
-      statusEl.textContent = `Showing all ${total} Google reviews`;
+      loadMoreBtn.setAttribute("hidden", "");
+      loadMoreBtn.disabled = true;
     }
   }
 
   /**
-   * @param {{author:string,rating:number,date:string,text:?string,reply?:string}} review
+   * @param {{author:string,rating:number,date:string,text:?string,reply?:string,source?:string,location?:string}} review
    * @param {number} index
    */
   function createReviewCard(review, index) {
@@ -305,9 +346,12 @@
     card.className = "review-card";
     card.dataset.order = String(index);
     card.style.animationDelay = `${(index % PAGE_SIZE) * 30}ms`;
+
+    const source = normalizeSource(review.source);
+    const sourceLabel = sourceDisplayName(source);
     card.setAttribute(
       "aria-label",
-      `Review by ${review.author}, ${review.rating} out of 5 stars`
+      `Review by ${review.author}, ${review.rating} out of 5 stars, via ${sourceLabel}`
     );
 
     const rating = Number(review.rating) || 0;
@@ -317,6 +361,8 @@
     const text = hasText ? review.text.trim() : "";
     const hasReply =
       typeof review.reply === "string" && review.reply.trim().length > 0;
+    const hasLocation =
+      typeof review.location === "string" && review.location.trim().length > 0;
 
     card.innerHTML = `
       <div class="review-card-top">
@@ -324,7 +370,12 @@
           <div class="stars" role="img" aria-label="${rating} out of 5 stars">
             ${buildStars(rating)}
           </div>
-          <p class="reviewer-name">${escapeHtml(review.author || "Google User")}</p>
+          <p class="reviewer-name">${escapeHtml(review.author || "Customer")}</p>
+          ${
+            hasLocation
+              ? `<p class="reviewer-location">${escapeHtml(review.location.trim())}</p>`
+              : ""
+          }
         </div>
         <time class="review-date" datetime="${escapeAttr(review.date || "")}">
           ${escapeHtml(dateLabel)}
@@ -341,9 +392,54 @@
             </div>`
           : ""
       }
+      <div class="review-source" title="${sourceLabel} review">
+        ${sourceLogo(source)}
+        <span class="visually-hidden">Source: ${sourceLabel}</span>
+      </div>
     `;
 
     return card;
+  }
+
+  /** @param {unknown} raw */
+  function normalizeSource(raw) {
+    const s = String(raw || "google").toLowerCase().trim();
+    if (s === "yelp") return "yelp";
+    if (s === "buildzoom") return "buildzoom";
+    return "google";
+  }
+
+  /** @param {"google"|"yelp"|"buildzoom"} source */
+  function sourceDisplayName(source) {
+    if (source === "yelp") return "Yelp";
+    if (source === "buildzoom") return "BuildZoom";
+    return "Google";
+  }
+
+  /**
+   * Brand-style source mark for the card corner.
+   * @param {"google"|"yelp"|"buildzoom"} source
+   */
+  function sourceLogo(source) {
+    if (source === "yelp") {
+      // Red Yelp burst mark (classic burst silhouette)
+      return `<svg class="source-logo source-logo--yelp" viewBox="0 0 384 512" aria-hidden="true" focusable="false">
+        <path fill="#D32323" d="M42.9 240.32l99.62 48.61c19.2 9.4 16.2 37.51-4.5 42.71L30.5 358.45a22.79 22.79 0 0 1-28.21-19.6 197.16 197.16 0 0 1 9-85.32 22.8 22.8 0 0 1 31.61-13.21zm44 239.25a199.45 199.45 0 0 0 79.42 32.11A22.78 22.78 0 0 0 192.94 490l3.9-110.82c.7-21.3-25.5-31.91-39.81-16.1l-74.21 82.4a22.82 22.82 0 0 0 4.09 34.09zm145.34-109.92l58.81 94a22.93 22.93 0 0 0 34 5.5 198.36 198.36 0 0 0 52.71-67.61A23 23 0 0 0 364.17 370l-105.42-34.26c-19.41-6.21-28.51 23.91-11.51 34.91zm148.33-132.23a197.44 197.44 0 0 0-50.41-69.31 22.85 22.85 0 0 0-34 4.4l-62 91.92c-11.9 17.7 12.8 36.31 28.5 20.91l105.41-34.22a22.87 22.87 0 0 0 12.5-13.7zm-77.71-110.62l-14.81-2.81c-18.11-3.41-28.31 16.7-16.41 30.5l80.81 93.41c14.91 17.3 42.11 3.71 34.51-16.4a198 198 0 0 0-55.41-96.7 22.79 22.79 0 0 0-28.69-8z"/>
+      </svg>`;
+    }
+
+    if (source === "buildzoom") {
+      // Official BuildZoom house + magnifying glass mark (from their site)
+      return `<img class="source-logo source-logo--buildzoom" src="/buildzoom-logo.png" width="20" height="20" alt="" decoding="async" />`;
+    }
+
+    // Multicolor Google "G"
+    return `<svg class="source-logo source-logo--google" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+    </svg>`;
   }
 
   /**
@@ -547,10 +643,13 @@
   });
 
   loadMoreBtn?.addEventListener("click", () => {
-    loadMoreBtn.disabled = true;
+    if (isLoadingMore || loadMoreBtn.disabled || loadMoreBtn.hidden) return;
+    // Append the next batch below without jumping scroll — user keeps
+    // reading from the same place and scrolls into the new cards naturally.
     renderNextPage();
   });
 
+  // Sticky toolbar state only — do not auto-load on scroll (button is intentional)
   let scrollTicking = false;
   window.addEventListener(
     "scroll",
@@ -560,12 +659,6 @@
       requestAnimationFrame(() => {
         scrollTicking = false;
         updateToolbarStuckState();
-        if (loadMoreBtn.hidden || loadMoreBtn.disabled) return;
-        const rect = loadMoreBtn.getBoundingClientRect();
-        if (rect.top < window.innerHeight + 200) {
-          loadMoreBtn.disabled = true;
-          renderNextPage();
-        }
       });
     },
     { passive: true }

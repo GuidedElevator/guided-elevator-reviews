@@ -84,7 +84,7 @@ If you put only root-level HTML and also have a `public/` folder, Vercel’s sta
 | Since | 2006 (family-owned) |
 | Service area | Los Angeles & Orange County |
 | Display rating | **4.9** out of 5 |
-| Review count (current data) | **89** Google reviews |
+| Review count (current data) | **94** customer reviews (89 Google + 3 Yelp + 2 BuildZoom) |
 | Brand orange (main site) | `#ff5c00` (hover/dark `#e04f00`, light `#ff7a33`) |
 | Design palette | Deep navy (`#0a1f3a` etc.) + white + gold stars (`#d4a017`) + green reply accents |
 
@@ -109,7 +109,9 @@ Main site brand tokens live in `guided-elevator/src/app/globals.css` (`--brand-o
   "rating": 1–5,
   "date": "YYYY-MM-DD",
   "text": "string | null",
-  "reply": "string (optional company reply)"
+  "reply": "string (optional company reply)",
+  "source": "google | yelp | buildzoom",
+  "location": "string (optional, used on some Yelp reviews)"
 }
 ```
 
@@ -118,12 +120,14 @@ Main site brand tokens live in `guided-elevator/src/app/globals.css` (`--brand-o
 1. **Never invent reviews.** Only exact data from the JSON.
 2. Some reviews have `text: null` — UI shows a short italic placeholder; still show stars/name/date.
 3. Optional `reply` renders in a green-tinted “Response from Guided Elevator” box.
-4. JSON is roughly newest-first; client re-sorts based on UI control.
-5. When updating reviews: replace `data/reviews.json`, run `npm run build`, update hard-coded **4.9** / **89** in HTML + AggregateRating + verify script if counts change.
+4. **`source`** drives the small logo on each card (Google **G**, red Yelp burst, or BuildZoom **BZ** mark), bottom-right.
+5. Site copy speaks generically about **customer reviews** (Google, Yelp & BuildZoom), not Google-only.
+6. JSON is roughly newest-first; client re-sorts based on UI control.
+7. When updating reviews: replace `data/reviews.json`, run `npm run build`, update hard-coded **4.9** / **94** in HTML + AggregateRating + verify script if counts change.
 
 ### Stats from last import (for orientation)
 
-- 89 total; mostly 5★; includes replies on a subset; a few null texts.
+- 94 total (89 Google, 3 Yelp, 2 BuildZoom); mostly 5★; avg ~4.9; includes replies on a subset; a few null texts.
 
 ---
 

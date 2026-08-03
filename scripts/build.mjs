@@ -32,6 +32,13 @@ for (const [i, r] of reviews.entries()) {
       process.exit(1);
     }
   }
+  const source = String(r.source || "google").toLowerCase();
+  if (source !== "google" && source !== "yelp" && source !== "buildzoom") {
+    console.error(
+      `Build failed: review[${i}] has unsupported source "${r.source}"`
+    );
+    process.exit(1);
+  }
 }
 
 // Ensure public/data has the reviews JSON
