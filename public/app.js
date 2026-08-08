@@ -164,11 +164,14 @@
     return list;
   }
 
-  /** @returns {number} */
+  /**
+   * Column count from CSS-aligned media queries (more reliable on mobile
+   * than raw innerWidth, which can be wrong during early load / zoom).
+   * @returns {number}
+   */
   function getDesiredColumnCount() {
-    const w = window.innerWidth;
-    if (w >= 900) return 3;
-    if (w >= 640) return 2;
+    if (window.matchMedia("(min-width: 900px)").matches) return 3;
+    if (window.matchMedia("(min-width: 640px)").matches) return 2;
     return 1;
   }
 
@@ -664,6 +667,15 @@
     { passive: true }
   );
 
+  function onViewportChange() {
+    updateHeaderStickyOffset();
+    updateToolbarStuckState();
+    const desired = getDesiredColumnCount();
+    if (desired !== columnCount) {
+      relayoutVisible();
+    }
+  }
+
   let resizeTicking = false;
   window.addEventListener(
     "resize",
@@ -672,16 +684,23 @@
       resizeTicking = true;
       requestAnimationFrame(() => {
         resizeTicking = false;
-        updateHeaderStickyOffset();
-        updateToolbarStuckState();
-        const desired = getDesiredColumnCount();
-        if (desired !== columnCount) {
-          relayoutVisible();
-        }
+        onViewportChange();
       });
     },
     { passive: true }
   );
+
+  // Prefer matchMedia listeners so mobile/desktop breakpoints stay in sync
+  const mqTablet = window.matchMedia("(min-width: 640px)");
+  const mqDesktop = window.matchMedia("(min-width: 900px)");
+  const onMqChange = () => onViewportChange();
+  if (typeof mqTablet.addEventListener === "function") {
+    mqTablet.addEventListener("change", onMqChange);
+    mqDesktop.addEventListener("change", onMqChange);
+  } else if (typeof mqTablet.addListener === "function") {
+    mqTablet.addListener(onMqChange);
+    mqDesktop.addListener(onMqChange);
+  }
 
   // Header height can change after fonts/images load
   if (siteHeader && typeof ResizeObserver !== "undefined") {
@@ -691,4 +710,13 @@
     });
     ro.observe(siteHeader);
   }
+
+  // Re-check after first paint (mobile browsers sometimes report width late)
+  window.addEventListener(
+    "load",
+    () => {
+      onViewportChange();
+    },
+    { once: true }
+  );
 })();

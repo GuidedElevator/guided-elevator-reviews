@@ -61,6 +61,7 @@ body {
   line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  overflow-x: clip;
 }
 
 img {
@@ -603,16 +604,24 @@ p {
 
 /*
  * Height-balanced masonry: flex columns filled by JS (shortest-column pack).
- * Avoids CSS multi-column newspaper flow and uneven tall/empty columns.
+ * Mobile: single vertical stack (must not run off-screen as a horizontal row).
+ * Tablet/desktop: side-by-side columns via JS column count.
  */
 .reviews-grid {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column; /* mobile-first: stack columns vertically */
+  align-items: stretch;
   gap: 1.1rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
 }
 
 .reviews-col {
-  flex: 1 1 0;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -630,9 +639,26 @@ p {
   flex-direction: column;
   gap: 0.75rem;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
   transition: box-shadow var(--transition), border-color var(--transition),
     transform var(--transition);
   animation: fade-up 360ms ease both;
+}
+
+/* Side-by-side columns only when there is room (matches JS breakpoints) */
+@media (min-width: 640px) {
+  .reviews-grid {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .reviews-col {
+    flex: 1 1 0;
+    width: auto;
+  }
 }
 
 .review-card:hover {
