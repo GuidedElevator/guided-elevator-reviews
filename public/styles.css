@@ -604,31 +604,33 @@ p {
 
 /*
  * Height-balanced masonry: flex columns filled by JS (shortest-column pack).
- * Mobile: single vertical stack (must not run off-screen as a horizontal row).
- * Tablet/desktop: side-by-side columns via JS column count.
+ * Mobile: ONE full-width vertical list (no side-by-side columns).
+ * Tablet/desktop: multi-column row layout.
  */
+.reviews-section,
+.reviews-mosaic,
+.reviews-grid {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .reviews-grid {
   display: flex;
-  flex-direction: column; /* mobile-first: stack columns vertically */
+  flex-direction: column;
   align-items: stretch;
   gap: 1.1rem;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: clip;
+  overflow-x: hidden;
 }
 
+/* On phones, collapse any multi-col DOM into one vertical flow */
 .reviews-col {
-  flex: 1 1 auto;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
+  display: contents; /* children participate in parent flex as a single stack */
 }
 
-.review-card {
+.review-card,
+.skeleton-card {
   position: relative;
   background: var(--white);
   border: 1px solid var(--slate-200);
@@ -641,23 +643,46 @@ p {
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  flex: 0 0 auto;
   box-sizing: border-box;
   overflow-wrap: anywhere;
+  word-break: break-word;
   transition: box-shadow var(--transition), border-color var(--transition),
     transform var(--transition);
   animation: fade-up 360ms ease both;
 }
 
-/* Side-by-side columns only when there is room (matches JS breakpoints) */
+.skeleton-card {
+  min-height: 180px;
+  padding: 0;
+  gap: 0;
+  background: linear-gradient(
+    90deg,
+    var(--slate-100) 25%,
+    var(--slate-200) 50%,
+    var(--slate-100) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  border: 1px solid var(--slate-200);
+}
+
+/* Side-by-side columns only from tablet up (JS uses same breakpoints) */
 @media (min-width: 640px) {
   .reviews-grid {
     flex-direction: row;
     align-items: flex-start;
+    overflow-x: visible;
   }
 
   .reviews-col {
+    display: flex;
+    flex-direction: column;
     flex: 1 1 0;
     width: auto;
+    max-width: none;
+    min-width: 0;
+    gap: 1.1rem;
   }
 }
 
@@ -883,22 +908,7 @@ p {
   color: rgba(255, 255, 255, 0.55);
 }
 
-/* ---------- Skeleton / empty ---------- */
-
-.skeleton-card {
-  min-height: 180px;
-  width: 100%;
-  border-radius: var(--radius-md);
-  background: linear-gradient(
-    90deg,
-    var(--slate-100) 25%,
-    var(--slate-200) 50%,
-    var(--slate-100) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.2s infinite;
-  border: 1px solid var(--slate-200);
-}
+/* ---------- Empty / error ---------- */
 
 .error-state {
   flex: 1 1 100%;
